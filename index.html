@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NutrIA // Terminal de Gestão de Dieta</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <!-- TELA DE BLOQUEIO POR SENHA (PROTEÇÃO DA CHAVE DA API) -->
+  <div id="lock-screen" class="lock-screen">
+    <div class="panel lock-panel">
+      <div class="panel-title">[ SEGURANÇA NUTRIA ]</div>
+      <div class="lock-body">
+        <p style="margin-bottom: 12px; font-weight: bold;">Este aplicativo contém credenciais privadas. Digite a senha de acesso:</p>
+        <div class="form-group">
+          <label for="lock-password">Senha:</label>
+          <input type="password" id="lock-password" style="width: 100%; margin-bottom: 10px;">
+        </div>
+        <div class="lock-buttons" style="display: flex; justify-content: flex-end; gap: 8px;">
+          <button id="btn-unlock" class="btn btn-primary">OK</button>
+        </div>
+        <p id="lock-error" style="color: var(--text-error); font-weight: bold; margin-top: 8px; display: none;">Senha incorreta. Tente novamente.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Efeito de tela CRT antiga (scanlines + flicker sutil) -->
+  <div class="crt-overlay"></div>
+
+  <div class="terminal-container">
+    <!-- PAINEL SUPERIOR: RESUMO DIÁRIO (KPIs DO TERMINAL) -->
+    <section class="panel dashboard-panel">
+      <div class="panel-title">[ MONITOR DE MACRONUTRIENTES DIÁRIOS ]</div>
+      <div class="dashboard-grid">
+        <!-- Calorias -->
+        <div class="kpi-box">
+          <div class="kpi-label">CALORIAS (KCAL)</div>
+          <div class="kpi-values">
+            <span id="consumed-kcal">0</span> / <span id="target-kcal">2986</span> kcal
+          </div>
+          <div class="kpi-progress" id="progress-kcal">[....................] 0%</div>
+          <div class="kpi-status">SALDO: <span id="balance-kcal">2986</span> kcal</div>
+        </div>
+
+        <!-- Carboidratos -->
+        <div class="kpi-box">
+          <div class="kpi-label">CARBOIDRATOS (G)</div>
+          <div class="kpi-values">
+            <span id="consumed-carb">0</span> / <span id="target-carb">410</span> g
+          </div>
+          <div class="kpi-progress" id="progress-carb">[....................] 0%</div>
+          <div class="kpi-status">SALDO: <span id="balance-carb">410</span> g</div>
+        </div>
+
+        <!-- Proteínas -->
+        <div class="kpi-box">
+          <div class="kpi-label">PROTEÍNAS (G)</div>
+          <div class="kpi-values">
+            <span id="consumed-prot">0</span> / <span id="target-prot">198</span> g
+          </div>
+          <div class="kpi-progress" id="progress-prot">[....................] 0%</div>
+          <div class="kpi-status">SALDO: <span id="balance-prot">198</span> g</div>
+        </div>
+
+        <!-- Gorduras -->
+        <div class="kpi-box">
+          <div class="kpi-label">GORDURAS (G)</div>
+          <div class="kpi-values">
+            <span id="consumed-gord">0</span> / <span id="target-gord">57</span> g
+          </div>
+          <div class="kpi-progress" id="progress-gord">[....................] 0%</div>
+          <div class="kpi-status">SALDO: <span id="balance-gord">57</span> g</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- CORPO PRINCIPAL DO TERMINAL -->
+    <div class="main-layout">
+      <!-- PAINEL ESQUERDO: PLANO ALIMENTAR & REFEIÇÕES -->
+      <main class="panel meals-panel">
+        <div class="panel-title">[ DIET PLAN: PLANO ATIVO & REGISTRO DE DESVIOS ]</div>
+        <div class="panel-actions">
+          <button id="btn-reset" class="btn btn-warning">F5_RESET_PLAN_ORIGINAL</button>
+        </div>
+
+        <div id="meals-container">
+          <!-- Gerado dinamicamente via JS (exemplo estrutural abaixo) -->
+          <div class="loading">Carregando dados das refeições do sistema...</div>
+        </div>
+      </main>
+
+      <!-- PAINEL DIREITO: CONSOLE CONVERSACIONAL DE IA -->
+      <aside class="sidebar-layout">
+        <section class="panel chat-panel">
+          <div class="panel-title">[ CONSOLE NUTRIA: IA & SUBSTITUIÇÕES ]</div>
+          <div id="chat-messages" class="chat-messages">
+            <!-- Mensagens geradas via JS -->
+          </div>
+          <div class="chat-input-area">
+            <input type="text" id="chat-input-text" class="chat-input-text" placeholder="Diga algo (ex: trocar arroz por banana no pré-treino)" autocomplete="off">
+            <label class="btn chat-btn-icon" title="Enviar Foto de Tabela Nutricional (OCR)" style="margin: 0; display: flex; align-items: center; justify-content: center; cursor: pointer;">
+              📷
+              <input type="file" id="chat-file-input" accept="image/*" style="display:none;">
+            </label>
+            <button id="chat-send-btn" class="btn btn-primary chat-btn-icon" style="margin: 0;">➔</button>
+          </div>
+        </section>
+      </aside>
+    </div>
+
+    <!-- DIÁLOGO POPUP: ADICIONAR NOVO ALIMENTO -->
+    <div id="custom-food-modal" class="modal" style="display: none;">
+      <div class="modal-content panel">
+        <div class="panel-title">[ REGISTRAR NOVO ALIMENTO NO BANCO ]</div>
+        <form id="custom-food-form">
+          <div class="form-group">
+            <label for="new-food-name">Nome do Alimento:</label>
+            <input type="text" id="new-food-name" required placeholder="Ex: Frango Grelhado Temperado">
+          </div>
+          <div class="form-row">
+            <div class="form-group col">
+              <label for="new-food-kcal">Kcal / 100g:</label>
+              <input type="number" id="new-food-kcal" required step="0.1">
+            </div>
+            <div class="form-group col">
+              <label for="new-food-carb">Carboidratos (g) / 100g:</label>
+              <input type="number" id="new-food-carb" required step="0.1">
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group col">
+              <label for="new-food-prot">Proteínas (g) / 100g:</label>
+              <input type="number" id="new-food-prot" required step="0.1">
+            </div>
+            <div class="form-group col">
+              <label for="new-food-gord">Gorduras (g) / 100g:</label>
+              <input type="number" id="new-food-gord" required step="0.1">
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group col">
+              <label for="new-food-fibra">Fibra (g) / 100g:</label>
+              <input type="number" id="new-food-fibra" value="0" step="0.1">
+            </div>
+            <div class="form-group col">
+              <label for="new-food-sodio">Sódio (mg) / 100g:</label>
+              <input type="number" id="new-food-sodio" value="0" step="0.1">
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group col">
+              <label for="new-food-state">Estado:</label>
+              <select id="new-food-state">
+                <option value="cozido">Cozido / Pronto</option>
+                <option value="cru">Cru / Seco</option>
+              </select>
+            </div>
+            <div class="form-group col">
+              <label for="new-food-factor">Fator de Conversão:</label>
+              <input type="number" id="new-food-factor" value="1.0" step="0.05">
+            </div>
+          </div>
+          <div class="modal-buttons">
+            <button type="submit" class="btn btn-success">SALVAR ALIMENTO</button>
+            <button type="button" id="btn-close-modal" class="btn btn-warning">CANCELAR</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- DIÁLOGO POPUP: INSERIR COMIDA EXTRA NA REFEIÇÃO -->
+    <div id="add-food-modal" class="modal" style="display: none;">
+      <div class="modal-content panel">
+        <div class="panel-title">[ ADICIONAR ALIMENTO À REFEIÇÃO: <span id="add-food-meal-name">-</span> ]</div>
+        <form id="add-food-form">
+          <input type="hidden" id="add-food-meal-id">
+          <div class="form-group">
+            <label for="add-food-select">Selecionar Alimento:</label>
+            <select id="add-food-select" class="select-search">
+              <!-- Preenchido via JS -->
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="add-food-amount">Quantidade Consumida (g):</label>
+            <input type="number" id="add-food-amount" value="100" min="1" required>
+          </div>
+          <div class="modal-buttons">
+            <button type="submit" class="btn btn-success">ADICIONAR</button>
+            <button type="button" id="btn-close-add-food-modal" class="btn btn-warning">CANCELAR</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- PAINEL INFERIOR: CONSOLE LOG DO MOTOR MATEMÁTICO -->
+    <footer class="panel console-panel">
+      <div class="panel-title">[ REGISTROS DO MOTOR DE RECÁLCULO (CONSOLE) ]</div>
+      <div class="console-logs" id="console-logs">
+        <div class="log-line">[14:50:00] SISTEMA DE GESTÃO NUTRIA CARREGADO COM SUCESSO.</div>
+        <div class="log-line">[14:50:01] REGISTROS DE INTEGRALIDADE ENCONTRADOS. AGUARDANDO INTERAÇÃO...</div>
+      </div>
+    </footer>
+  </div>
+
+
+
+  <script src="js/database.js"></script>
+  <script src="js/engine.js"></script>
+  <script src="js/ocr.js"></script>
+  <script src="js/chat.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
