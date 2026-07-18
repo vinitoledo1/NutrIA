@@ -600,3 +600,82 @@ select:focus {
   background-color: var(--w-bg-client);
   border: 1px solid var(--w-border-shadow);
 }
+
+/* Wrapper para rolar tabelas horizontalmente no celular se estourarem o espaço */
+.table-wrapper {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* AJUSTES RESPONSIVOS PARA CELULARES (MOBILE) */
+@media (max-width: 600px) {
+  body {
+    padding: 8px; /* Menos margem nas bordas da tela */
+  }
+
+  .dashboard-grid {
+    grid-template-columns: 1fr 1fr; /* Grid de 2x2 quadrados para os macros no topo */
+    gap: 8px;
+  }
+
+  .kpi-box {
+    padding: 8px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    min-height: 95px;
+  }
+
+  .kpi-label {
+    font-size: 9px;
+  }
+
+  .kpi-values {
+    font-size: 14px;
+    margin: 2px 0;
+  }
+
+  .kpi-progress {
+    font-size: 8px;
+    letter-spacing: -0.2px;
+  }
+
+  .kpi-status {
+    font-size: 8px;
+  }
+
+  /* Ajustes dos painéis e blocos */
+  .meal-block {
+    margin-bottom: 12px;
+  }
+
+  .meal-header-row {
+    padding: 4px 6px;
+  }
+
+  .meal-title-text {
+    font-size: 11px;
+  }
+
+  .meal-status-badge {
+    font-size: 8px;
+    padding: 1px 4px;
+  }
+
+  .retro-table th, .retro-table td {
+    padding: 4px 3px;
+    font-size: 10px;
+  }
+
+  /* Impede que o input de quantidade fique muito largo */
+  .food-qty-input {
+    font-size: 10px;
+    padding: 2px;
+  }
+
+  .btn {
+    padding: 4px 6px;
+    font-size: 10px;
+  }
+}
