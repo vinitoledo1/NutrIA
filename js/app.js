@@ -29,7 +29,7 @@ function bytesToHex(bytes) {
 }
 
 function decryptApiKey(passwordHashBytes) {
-  const ciphertextHex = "125837d7f7663e305a37c7285022396e339498c3212d231fb7a41e93e8de7a09364f50f2dd362539181edf32722122216a8dcfe62a";
+  const ciphertextHex = "125837d7f7663e305a32d8164131222565b3edf03c003f35848e03d896f14a373a3050e4a16855462919f63f0f1c004352e0e6ce1c";
   const cipherBytes = hexToBytes(ciphertextHex);
   const decryptedBytes = cipherBytes.map((byte, i) => byte ^ passwordHashBytes[i % passwordHashBytes.length]);
   return new TextDecoder().decode(decryptedBytes);
@@ -278,12 +278,12 @@ function renderMealsUI(recalculatedTargets) {
       <thead>
         <tr>
           <th>Alimento</th>
-          <th style="width: 100px;">Qtd Real (g)</th>
-          <th style="width: 70px;" class="text-carb">Carb</th>
-          <th style="width: 70px;" class="text-prot">Prot</th>
-          <th style="width: 70px;" class="text-gord">Gord</th>
-          <th style="width: 70px;">Kcal</th>
-          ${!isCompleted ? '<th style="width: 60px;">Ação</th>' : ''}
+          <th style="width: 75px;">Qtd Real (g)</th>
+          <th style="width: 48px;" class="text-carb">Carb</th>
+          <th style="width: 48px;" class="text-prot">Prot</th>
+          <th style="width: 48px;" class="text-gord">Gord</th>
+          <th style="width: 48px;">Kcal</th>
+          ${!isCompleted ? '<th style="width: 45px;">Ação</th>' : ''}
         </tr>
       </thead>
       <tbody></tbody>
@@ -359,7 +359,10 @@ function renderMealsUI(recalculatedTargets) {
       tbody.appendChild(tr);
     });
 
-    mealBlock.appendChild(table);
+    const tableWrapper = document.createElement('div');
+    tableWrapper.className = 'table-wrapper';
+    tableWrapper.appendChild(table);
+    mealBlock.appendChild(tableWrapper);
 
     // Botões de ação da refeição
     const actionsRow = document.createElement('div');
