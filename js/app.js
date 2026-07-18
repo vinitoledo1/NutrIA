@@ -28,8 +28,13 @@ function bytesToHex(bytes) {
   return Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
-function decryptApiKey(passwordHashBytes) {
-  const ciphertextHex = "125837d7f7663e305a32d8164131222565b3edf03c003f35848e03d896f14a373a3050e4a16855462919f63f0f1c004352e0e6ce1c";
+function encryptApiKey(apiKey, passwordHashBytes) {
+  const keyBytes = new TextEncoder().encode(apiKey);
+  const encryptedBytes = keyBytes.map((byte, i) => byte ^ passwordHashBytes[i % passwordHashBytes.length]);
+  return bytesToHex(encryptedBytes);
+}
+
+function decryptApiKey(ciphertextHex, passwordHashBytes) {
   const cipherBytes = hexToBytes(ciphertextHex);
   const decryptedBytes = cipherBytes.map((byte, i) => byte ^ passwordHashBytes[i % passwordHashBytes.length]);
   return new TextDecoder().decode(decryptedBytes);
@@ -47,11 +52,13 @@ async function handleUnlock() {
   try {
     const hashBytes = await sha256(password);
     const hashHex = bytesToHex(hashBytes);
-    const expectedHash = "53091996955e6c7e6c7b8e5839584c1601d8aea07b797c6fe2d175a0ddb23d62";
     
-    if (hashHex === expectedHash) {
+    const expectedHash = localStorage.getItem('nutria_password_hash');
+    const ciphertext = localStorage.getItem('nutria_encrypted_key');
+    
+    if (hashHex === expectedHash && ciphertext) {
       // Senha correta: Descriptografa a chave da API
-      const decryptedKey = decryptApiKey(hashBytes);
+      const decryptedKey = decryptApiKey(ciphertext, hashBytes);
       window.GEMINI_API_KEY = decryptedKey;
       sessionStorage.setItem('nutria_decrypted_key', decryptedKey);
       
@@ -71,6 +78,64 @@ async function handleUnlock() {
   } catch (err) {
     console.error("Erro na descriptografia:", err);
     alert("Erro interno de segurança do navegador.");
+  }
+}
+
+// Salva as credenciais criadas pelo usuário localmente
+async function handleSetup() {
+  const apiKeyInput = document.getElementById('setup-api-key');
+  const passwordInput = document.getElementById('setup-password');
+  const errorMsg = document.getElementById('setup-error');
+  const lockScreen = document.getElementById('lock-screen');
+  
+  if (!apiKeyInput || !passwordInput) return;
+  
+  const apiKey = apiKeyInput.value.trim();
+  const password = passwordInput.value;
+  
+  if (!apiKey || !password) {
+    if (errorMsg) errorMsg.style.display = 'block';
+    return;
+  }
+  
+  try {
+    const hashBytes = await sha256(password);
+    const hashHex = bytesToHex(hashBytes);
+    const encryptedKey = encryptApiKey(apiKey, hashBytes);
+    
+    // Salva localmente no navegador
+    localStorage.setItem('nutria_password_hash', hashHex);
+    localStorage.setItem('nutria_encrypted_key', encryptedKey);
+    
+    window.GEMINI_API_KEY = apiKey;
+    sessionStorage.setItem('nutria_decrypted_key', apiKey);
+    
+    if (lockScreen) lockScreen.style.display = 'none';
+    
+    initAppState();
+    initModals();
+    initChatLogic();
+    initGlobalActions();
+    recalculateAndRender();
+  } catch (err) {
+    console.error("Erro no setup:", err);
+    alert("Erro interno do navegador.");
+  }
+}
+
+// Limpa as credenciais salvas no aparelho
+function handleClearKey() {
+  if (confirm("Isso removerá a chave de API salva neste navegador. Deseja continuar?")) {
+    localStorage.removeItem('nutria_password_hash');
+    localStorage.removeItem('nutria_encrypted_key');
+    sessionStorage.removeItem('nutria_decrypted_key');
+    
+    document.getElementById('panel-unlock').style.display = 'none';
+    document.getElementById('panel-setup').style.display = 'block';
+    document.getElementById('setup-api-key').value = '';
+    document.getElementById('setup-password').value = '';
+    if (document.getElementById('setup-error')) document.getElementById('setup-error').style.display = 'none';
+    if (document.getElementById('lock-error')) document.getElementById('lock-error').style.display = 'none';
   }
 }
 
@@ -709,13 +774,18 @@ function initGlobalActions() {
   }
 }
 
-// INICIALIZADOR PRINCIPAL COM LOCK SCREEN DE SEGURANÇA
+// INICIALIZADOR PRINCIPAL COM LOCK SCREEN DE SEGURANÇA DINÂMICA
 document.addEventListener('DOMContentLoaded', () => {
   const lockScreen = document.getElementById('lock-screen');
   const passwordInput = document.getElementById('lock-password');
   const btnUnlock = document.getElementById('btn-unlock');
+  const btnClearKey = document.getElementById('btn-clear-key');
+  
+  const setupPassword = document.getElementById('setup-password');
+  const btnSaveSetup = document.getElementById('btn-save-setup');
   
   const savedDecryptedKey = sessionStorage.getItem('nutria_decrypted_key');
+  
   if (savedDecryptedKey) {
     window.GEMINI_API_KEY = savedDecryptedKey;
     if (lockScreen) lockScreen.style.display = 'none';
@@ -726,14 +796,28 @@ document.addEventListener('DOMContentLoaded', () => {
     initGlobalActions();
     recalculateAndRender();
   } else {
-    if (passwordInput) {
-      passwordInput.focus();
-      passwordInput.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') handleUnlock();
-      });
-    }
-    if (btnUnlock) {
-      btnUnlock.addEventListener('click', handleUnlock);
+    // Verifica se já há uma chave salva localmente no localStorage
+    const savedEncryptedKey = localStorage.getItem('nutria_encrypted_key');
+    if (savedEncryptedKey) {
+      document.getElementById('panel-unlock').style.display = 'block';
+      document.getElementById('panel-setup').style.display = 'none';
+      if (passwordInput) {
+        passwordInput.focus();
+        passwordInput.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter') handleUnlock();
+        });
+      }
+      if (btnUnlock) btnUnlock.addEventListener('click', handleUnlock);
+      if (btnClearKey) btnClearKey.addEventListener('click', handleClearKey);
+    } else {
+      document.getElementById('panel-unlock').style.display = 'none';
+      document.getElementById('panel-setup').style.display = 'block';
+      if (setupPassword) {
+        setupPassword.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter') handleSetup();
+        });
+      }
+      if (btnSaveSetup) btnSaveSetup.addEventListener('click', handleSetup);
     }
   }
 });
